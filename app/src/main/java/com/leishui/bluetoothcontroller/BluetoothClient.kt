@@ -3,7 +3,6 @@ package com.leishui.bluetoothcontroller
 import android.bluetooth.BluetoothSocket
 import android.os.Bundle
 import android.os.Handler
-import android.os.Message
 import android.util.Log
 import java.io.IOException
 import java.io.InputStream
@@ -23,15 +22,15 @@ class MyBluetoothService(
         const val MESSAGE_READ: Int = 0
         const val MESSAGE_WRITE: Int = 1
         const val MESSAGE_TOAST: Int = 2
-        const val MESSAGE_ERRO:Int = 3
+        const val MESSAGE_ERROR:Int = 3
     }
     private val connectedThread = ConnectedThread(bluetoothSocket)
 
     fun run(){
         connectedThread.start()
     }
-    fun write(bytes: ByteArray){
-        connectedThread.write(bytes)
+    fun write(string: String){
+        connectedThread.write(string.toByteArray())
     }
     fun cancel(){
         connectedThread.cancel()
@@ -52,7 +51,7 @@ class MyBluetoothService(
                     mmInStream.read(mmBuffer)
                 } catch (e: IOException) {
                     Log.e(TAG, "Input stream was disconnected", e)
-                    val msg = handler.obtainMessage(MESSAGE_ERRO,"Input stream was disconnected")
+                    val msg = handler.obtainMessage(MESSAGE_ERROR,"Input stream was disconnected")
                     msg.sendToTarget()
                     break
                 }
@@ -60,9 +59,10 @@ class MyBluetoothService(
                 // Send the obtained bytes to the UI activity.
                 val readMsg = handler.obtainMessage(
                     MESSAGE_READ, numBytes, -1,
-                    mmBuffer)
+                    String(mmBuffer.copyOf(numBytes)))
                 readMsg.sendToTarget()
-            }
+        }
+
         }
 
         // Call this from the main activity to send data to the remote device.
@@ -84,7 +84,7 @@ class MyBluetoothService(
 
             // Share the sent message with the UI activity.
             val writtenMsg = handler.obtainMessage(
-                MESSAGE_WRITE, -1, -1, bytes.contentToString())
+                MESSAGE_WRITE, -1, -1, String(bytes))
             writtenMsg.sendToTarget()
         }
 

@@ -38,6 +38,8 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.jetbrains.annotations.NotNull;
+
 import java.io.IOException;
 import java.text.DateFormat;
 import java.util.ArrayList;
@@ -49,34 +51,8 @@ import java.util.UUID;
  * Created by ouyangshen on 2017/12/11.
  */
 @SuppressLint("SetTextI18n")
-public class BluetoothActivity extends AppCompatActivity implements
+public class BluetoothActivityS extends AppCompatActivity implements
         OnCheckedChangeListener, OnItemClickListener {
-    private Handler handler = new Handler(new Handler.Callback() {
-        @Override
-        public boolean handleMessage(@NonNull Message msg) {
-            switch (msg.what) {
-                case MyBluetoothService.MESSAGE_READ: {
-                    log("read: " + msg.obj);
-                    break;
-                }
-                case MyBluetoothService.MESSAGE_WRITE: {
-                    log("write: " + msg.obj);
-                    break;
-                }
-                case MyBluetoothService.MESSAGE_TOAST: {
-                    log("toast: " + msg.getData().getString("toast"));
-                    break;
-                }
-                case MyBluetoothService.MESSAGE_ERROR: {
-                    log("readErr: " + msg.obj);
-                }
-                case BluetoothServer.MESSAGE_SERVER_READ: {
-                    log("read: " +  msg.obj);
-                }
-            }
-            return false;
-        }
-    });
     private String l = "";
     private MyBluetoothService bluetoothClient;
     private static final String TAG = "BluetoothActivity";
@@ -111,7 +87,7 @@ public class BluetoothActivity extends AppCompatActivity implements
     private BluetoothAdapter mBluetooth; // 声明一个蓝牙适配器对象
     private BlueListAdapter mListAdapter; // 声明一个蓝牙设备的列表适配器对象
     private ArrayList<BlueDevice> mDeviceList = new ArrayList<>(); // 蓝牙设备队列
-    private Handler mHandler = new Handler(); // 声明一个处理器对象
+    private Handler mHandler; // 声明一个处理器对象
     //private int mOpenCode = 1; // 是否允许扫描蓝牙设备的选择对话框返回结果代码
     private BluetoothServer bluetoothServer;
     private WorkService mService;
@@ -130,12 +106,7 @@ public class BluetoothActivity extends AppCompatActivity implements
             enableDiscoverButton();
         }
         initBlueDevice(); // 初始化蓝牙设备列表
-        initService();
     }
-
-    private void initService() {
-    }
-
 
     private void initViews() {
         ck_bluetooth = findViewById(R.id.ck_bluetooth);
@@ -175,7 +146,7 @@ public class BluetoothActivity extends AppCompatActivity implements
             @Override
             public boolean onLongClick(View v) {
                 if (bluetoothServer == null) {
-                    bluetoothServer = new BluetoothServer(handler, mBluetooth, BluetoothActivity.this, UUID.fromString(et_uuid.getText().toString()));
+                    bluetoothServer = new BluetoothServer(mHandler, mBluetooth, BluetoothActivityS.this, UUID.fromString(et_uuid.getText().toString()));
                     bluetoothServer.start();
                 }
                 if (bluetoothClient!=null){
@@ -223,7 +194,7 @@ public class BluetoothActivity extends AppCompatActivity implements
 
                     @Override
                     public void onClick(DialogInterface dialogInterface, int i) {
-                        Toast.makeText(BluetoothActivity.this, "取消打开位置信息（GPS）", Toast.LENGTH_SHORT).show();
+                        Toast.makeText(BluetoothActivityS.this, "取消打开位置信息（GPS）", Toast.LENGTH_SHORT).show();
                         // 关闭dialog
                         dialogInterface.dismiss();
                     }
@@ -264,7 +235,7 @@ public class BluetoothActivity extends AppCompatActivity implements
         public void run() {
             if (tv_counter.getText().equals("未打开本机可被检测"))
                 // Android8.0要在已打开蓝牙功能时才会弹出下面的选择窗
-                if (BluetoothUtil.getBlueToothStatus(BluetoothActivity.this)) {
+                if (BluetoothUtil.getBlueToothStatus(BluetoothActivityS.this)) {
                     // 弹出是否允许扫描蓝牙设备的选择对话框
                     Intent intent = new Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE);
                     startActivityForResult(intent, mOpenCode);
@@ -366,6 +337,9 @@ public class BluetoothActivity extends AppCompatActivity implements
     @Override
     protected void onStart() {
         super.onStart();
+        // Bind to LocalService
+        Intent intent = new Intent(this, WorkService.class);
+        bindService(intent, connection, Context.BIND_AUTO_CREATE);
         //mHandler.postDelayed(mRefresh, 50);
         // 需要过滤多个动作，则调用IntentFilter对象的addAction添加新动作
         IntentFilter discoveryFilter = new IntentFilter();
@@ -380,6 +354,8 @@ public class BluetoothActivity extends AppCompatActivity implements
     @Override
     protected void onStop() {
         super.onStop();
+        unbindService(connection);
+        mBound = false;
         cancelDiscovery(""); // 取消蓝牙设备的搜索
         // 注销蓝牙设备搜索的广播接收器
         unregisterReceiver(discoveryReceiver);
@@ -488,7 +464,7 @@ public class BluetoothActivity extends AppCompatActivity implements
                 } finally {
                     if (bluetoothSocket.isConnected()) {
                         log("连接成功");
-                        bluetoothClient = new MyBluetoothService(handler, bluetoothSocket);
+                        bluetoothClient = new MyBluetoothService(mHandler, bluetoothSocket);
                         bluetoothClient.run();
                     }
                 }
@@ -523,6 +499,44 @@ public class BluetoothActivity extends AppCompatActivity implements
             // We've bound to LocalService, cast the IBinder and get LocalService instance
             WorkService.LocalBinder binder = (WorkService.LocalBinder) service;
             mService = binder.getService();
+            mService.startForForeground();
+            mService.setMsgListener(new WorkService.MsgListener() {
+                @Override
+                public void clientRead(@NotNull String string) {
+                    log("read:  "+string);
+                }
+
+                @Override
+                public void clientWrite(@NotNull String string) {
+                    log("write:  "+string);
+                }
+
+                @Override
+                public void serverRead(@NotNull String string) {
+                    log("read:  "+string);
+                }
+
+                @Override
+                public void serverWrite(@NotNull String string) {
+                    log("write:  "+string);
+                }
+
+                @Override
+                public void error(@NotNull String string) {
+                    log("error:  "+string);
+                }
+
+                @Override
+                public void toast(@NotNull String string) {
+                    log("toast:  "+string);
+                }
+
+                @Override
+                public void failed(@NotNull String string) {
+                    log("failed: "+string);
+                }
+            });
+            mHandler = mService.getHandler();
             mBound = true;
         }
 
