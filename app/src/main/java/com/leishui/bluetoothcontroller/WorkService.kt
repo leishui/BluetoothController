@@ -1,11 +1,13 @@
 package com.leishui.bluetoothcontroller
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import android.graphics.Color
 import android.net.Uri
 import android.os.Binder
@@ -28,7 +30,7 @@ class WorkService : Service() {
                 MyBluetoothService.MESSAGE_READ -> {
                     val s = msg.obj as String
                     msgListener?.clientRead(s)
-                    parase(s)
+                    parse(s)
                 }
                 MyBluetoothService.MESSAGE_WRITE -> {
                     msgListener?.clientWrite(msg.obj as String)
@@ -42,7 +44,7 @@ class WorkService : Service() {
                 BluetoothServer.MESSAGE_SERVER_READ -> {
                     val s = msg.obj as String
                     msgListener?.serverRead(s)
-                    parase(s)
+                    parse(s)
                 }
                 BluetoothServer.MESSAGE_SERVER_WRITE -> {
                     msgListener?.serverWrite(msg.obj as String)
@@ -131,21 +133,36 @@ class WorkService : Service() {
             msgListener?.failed("不存在该应用")
     }
 
+    @SuppressLint("MissingPermission")
     private fun call(string: String){
         val uri: Uri = Uri.parse("tel:$string")
-        val intent = Intent(Intent.ACTION_DIAL, uri)
+        val intent = Intent(Intent.ACTION_CALL, uri).apply { flags=FLAG_ACTIVITY_NEW_TASK }
         if (intent != null)
             startActivity(intent)
         else
             msgListener?.failed("拨打失败")
     }
 
-    private fun parase(string: String){
+    private fun parse(string: String){
         val length = string.length
-        if (string.startsWith("打开应用")){
-            openApp(string.substring(4,length-1))
-        }else if (string.startsWith("拨打")){
-            call(string.substring(3,length-1))
+        when {
+            string.startsWith("打开应用") -> {
+                openApp(string.substring(4,length))
+                msgListener?.toast("openApp:  "+string.substring(4,length))
+            }
+            string.startsWith("拨打") -> {
+                call(string.substring(2,length))
+                msgListener?.toast("call:  "+string.substring(2,length))
+            }
+            string.startsWith("open") -> {
+                openApp(string.substring(4,length))
+                msgListener?.toast("openApp:  "+string.substring(4,length))
+            }
+            string.startsWith("call") -> {
+                call(string.substring(4,length))
+                msgListener?.toast("call:  "+string.substring(2,length))
+            }
         }
     }
+
 }

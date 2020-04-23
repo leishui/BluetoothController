@@ -1,5 +1,6 @@
 package com.leishui.bluetoothcontroller;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -12,6 +13,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
@@ -37,6 +39,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 
 import org.jetbrains.annotations.NotNull;
 
@@ -106,6 +110,9 @@ public class BluetoothActivityS extends AppCompatActivity implements
             enableDiscoverButton();
         }
         initBlueDevice(); // 初始化蓝牙设备列表
+        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
+            requestPermission();
+        }
     }
 
     private void initViews() {
@@ -124,7 +131,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
             public void onClick(View v) {
                 if (bluetoothClient != null) {
                     bluetoothClient.write(et_send.getText().toString());
-                }else if (bluetoothServer != null){
+                } else if (bluetoothServer != null) {
                     bluetoothServer.write(et_send.getText().toString());
                 }
             }
@@ -149,7 +156,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
                     bluetoothServer = new BluetoothServer(mHandler, mBluetooth, BluetoothActivityS.this, UUID.fromString(et_uuid.getText().toString()));
                     bluetoothServer.start();
                 }
-                if (bluetoothClient!=null){
+                if (bluetoothClient != null) {
                     bluetoothClient.cancel();
                     bluetoothClient = null;
                 }
@@ -451,7 +458,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
             BluetoothUtil.createBond(device); // 创建配对信息
         } else if (device.getBondState() == BluetoothDevice.BOND_BONDED) { // 已经配对
             log("尝试连接");
-            if (bluetoothServer!=null){
+            if (bluetoothServer != null) {
                 bluetoothServer.cancel();
             }
             BluetoothSocket bluetoothSocket = BluetoothUtil.connect(device, UUID.fromString(et_uuid.getText().toString()));
@@ -490,7 +497,9 @@ public class BluetoothActivityS extends AppCompatActivity implements
     }
 
 
-    /** Defines callbacks for service binding, passed to bindService() */
+    /**
+     * Defines callbacks for service binding, passed to bindService()
+     */
     private ServiceConnection connection = new ServiceConnection() {
 
         @Override
@@ -500,42 +509,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
             WorkService.LocalBinder binder = (WorkService.LocalBinder) service;
             mService = binder.getService();
             mService.startForForeground();
-            mService.setMsgListener(new WorkService.MsgListener() {
-                @Override
-                public void clientRead(@NotNull String string) {
-                    log("read:  "+string);
-                }
-
-                @Override
-                public void clientWrite(@NotNull String string) {
-                    log("write:  "+string);
-                }
-
-                @Override
-                public void serverRead(@NotNull String string) {
-                    log("read:  "+string);
-                }
-
-                @Override
-                public void serverWrite(@NotNull String string) {
-                    log("write:  "+string);
-                }
-
-                @Override
-                public void error(@NotNull String string) {
-                    log("error:  "+string);
-                }
-
-                @Override
-                public void toast(@NotNull String string) {
-                    log("toast:  "+string);
-                }
-
-                @Override
-                public void failed(@NotNull String string) {
-                    log("failed: "+string);
-                }
-            });
+            mService.setMsgListener(new MsgListener());
             mHandler = mService.getHandler();
             mBound = true;
         }
@@ -545,4 +519,102 @@ public class BluetoothActivityS extends AppCompatActivity implements
             mBound = false;
         }
     };
+
+    @Override
+    protected void onResume() {
+        if (mService != null)
+            mService.setMsgListener(new MsgListener());
+        super.onResume();
+    }
+
+    class MsgListener implements WorkService.MsgListener {
+        @Override
+        public void clientRead(@NotNull String string) {
+            log("read:  " + string);
+        }
+
+        @Override
+        public void clientWrite(@NotNull String string) {
+            log("write:  " + string);
+        }
+
+        @Override
+        public void serverRead(@NotNull String string) {
+            log("read:  " + string);
+        }
+
+        @Override
+        public void serverWrite(@NotNull String string) {
+            log("write:  " + string);
+        }
+
+        @Override
+        public void error(@NotNull String string) {
+            log("error:  " + string);
+        }
+
+        @Override
+        public void toast(@NotNull String string) {
+            log("toast:  " + string);
+        }
+
+        @Override
+        public void failed(@NotNull String string) {
+            log("failed: " + string);
+        }
+
+    }
+    private void requestPermission() {
+
+        Log.i(TAG,"requestPermission");
+        // Here, thisActivity is the current activity
+        if (ContextCompat.checkSelfPermission(this,
+                Manifest.permission.CALL_PHONE)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.i(TAG,"checkSelfPermission");
+            // Should we show an explanation?
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    Manifest.permission.CALL_PHONE)) {
+                Log.i(TAG,"shouldShowRequestPermissionRationale");
+                // Show an expanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.CALL_PHONE},
+                        11);
+
+            } else {
+                Log.i(TAG,"requestPermissions");
+                // No explanation needed, we can request the permission.
+                ActivityCompat.requestPermissions(this,
+                        new String[]{Manifest.permission.CALL_PHONE},
+                        11);
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+        }
+    }
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           @NotNull String[] permissions, @NotNull int[] grantResults) {
+        if (requestCode == 11) {// If request is cancelled, the result arrays are empty.
+            if (grantResults.length > 0
+                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                Log.i(TAG, "onRequestPermissionsResult granted");
+                // permission was granted, yay! Do the
+                // contacts-related task you need to do.
+
+            } else {
+                Log.i(TAG, "onRequestPermissionsResult denied");
+                // permission denied, boo! Disable the
+                // functionality that depends on this permission.
+                requestPermission();
+            }
+
+            // other 'case' lines to check for other
+            // permissions this app might request
+        }
+    }
 }
