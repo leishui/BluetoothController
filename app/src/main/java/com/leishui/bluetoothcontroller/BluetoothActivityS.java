@@ -110,9 +110,6 @@ public class BluetoothActivityS extends AppCompatActivity implements
             enableDiscoverButton();
         }
         initBlueDevice(); // 初始化蓝牙设备列表
-        if (Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){
-            requestPermission();
-        }
     }
 
     private void initViews() {
@@ -181,7 +178,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
             // 从系统服务中获取蓝牙管理器
             BluetoothManager bm = (BluetoothManager)
                     getSystemService(Context.BLUETOOTH_SERVICE);
-            mBluetooth = bm.getAdapter();
+            mBluetooth = bm != null ? bm.getAdapter() : null;
         } else {
             // 获取系统默认的蓝牙适配器
             mBluetooth = BluetoothAdapter.getDefaultAdapter();
@@ -379,7 +376,7 @@ public class BluetoothActivityS extends AppCompatActivity implements
                 switch (action) {
                     case BluetoothDevice.ACTION_FOUND: { // 发现新的蓝牙设备
                         BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-                        log("name=" + device.getName() + ", state=" + device.getBondState());
+                        log("name=" + (device != null ? device.getName() : null) + ", state=" + device.getBondState());
                         refreshDevice(device, device.getBondState()); // 将发现的蓝牙设备加入到设备列表
 
                         break;
@@ -563,58 +560,5 @@ public class BluetoothActivityS extends AppCompatActivity implements
             log("failed: " + string);
         }
 
-    }
-    private void requestPermission() {
-
-        Log.i(TAG,"requestPermission");
-        // Here, thisActivity is the current activity
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.CALL_PHONE)
-                != PackageManager.PERMISSION_GRANTED) {
-            Log.i(TAG,"checkSelfPermission");
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.CALL_PHONE)) {
-                Log.i(TAG,"shouldShowRequestPermissionRationale");
-                // Show an expanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.CALL_PHONE},
-                        11);
-
-            } else {
-                Log.i(TAG,"requestPermissions");
-                // No explanation needed, we can request the permission.
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.CALL_PHONE},
-                        11);
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-        }
-    }
-    @Override
-    public void onRequestPermissionsResult(int requestCode,
-                                           @NotNull String[] permissions, @NotNull int[] grantResults) {
-        if (requestCode == 11) {// If request is cancelled, the result arrays are empty.
-            if (grantResults.length > 0
-                    && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Log.i(TAG, "onRequestPermissionsResult granted");
-                // permission was granted, yay! Do the
-                // contacts-related task you need to do.
-
-            } else {
-                Log.i(TAG, "onRequestPermissionsResult denied");
-                // permission denied, boo! Disable the
-                // functionality that depends on this permission.
-                requestPermission();
-            }
-
-            // other 'case' lines to check for other
-            // permissions this app might request
-        }
     }
 }
